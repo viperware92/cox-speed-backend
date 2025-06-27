@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Cox Speed Monitor</title>
+  <style>
+    body { font-family: Arial, sans-serif; background: #111; color: #fff; text-align: center; padding: 2rem; }
+    h1 { color: #f1c40f; }
+    .result { margin: 1rem auto; padding: 1rem; background: #222; border-radius: 8px; max-width: 400px; }
+    button { padding: 0.5rem 1rem; background: #f1c40f; border: none; color: #000; font-weight: bold; cursor: pointer; border-radius: 5px; margin: 0.5rem; }
+    .alert { color: #e74c3c; font-weight: bold; }
+    .ok { color: #2ecc71; font-weight: bold; }
+    #log { margin-top: 2rem; text-align: left; max-width: 500px; margin-left: auto; margin-right: auto; }
+    .log-entry { background: #1a1a1a; padding: 0.5rem; margin-bottom: 0.5rem; border-radius: 6px; }
+  </style>
+</head>
+<body>
+  <h1>Cox Speed Monitor</h1>
+  <p>Click the button below to test your internet speed:</p>
+  <button onclick="runSpeedTest()">Run Speed Test</button>
+  <button onclick="exportLog()">Export Log</button>
+
+  <div class="result" id="results" style="display: none;">
+    <p><strong>Download:</strong> <span id="download"></span> Mbps</p>
+    <p><strong>Upload:</strong> <span id="upload"></span> Mbps</p>
+    <p><strong>Ping:</strong> <span id="ping"></span> ms</p>
+    <p id="alertMsg"></p>
+  </div>
+
+  <div id="log">
+    <h3>Test History</h3>
+    <div id="history"></div>
+  </div>
+
+  <script>
+    let autoTestInterval;
+    let logData = [];
+
+    async function runSpeedTest() {
+      const resultsDiv = document.getElementById('results');
+      const historyDiv = document.getElementById('history');
+      resultsDiv.style.display = 'block';
+
+      document.getElementById('download').innerText = '...';
+      document.getElementById('upload').innerText = '...';
+      document.getElementById('ping').innerText = '...';
+      document.getElementById('alertMsg').innerText = '';
+
+      try {
+        const res = await fetch('https://cox-speed-backend.onrender.com/api/speedtest');
+        const data = await res.json();
+
+        const { download, upload, ping } = data;
+
+        document.getElementById('download').innerText = download;
+        document.getElementById('upload').innerText = upload;
+        document.getElementById('ping').innerText = ping;
+
+        const now = new Date();
+        const timestamp = now.toLocaleString();
+        const alert = upload < 10 ? '⚠️ Upload speed is low!' : '✅ Upload is good';
+        document.getElementById('alertMsg').innerHTML = upload < 10 ? '<span class="alert">⚠️ Upload speed is below expected!</span>' : '<span class="ok">✅ Upload speed looks normal.</span>';
+
+        const logEntry = `[${timestamp}] ↓ ${download} Mbps | ↑ ${upload} Mbps | Ping: ${ping} ms | ${alert}`;
+        logData.unshift(logEntry);
+
+        const divEntry = document.createElement('div');
+        divEntry.className = 'log-entry';
+        divEntry.innerText = logEntry;
+        historyDiv.prepend(divEntry);
+      } catch (err) {
+        document.getElementById('alertMsg').innerHTML = `<span class="alert">❌ Error: ${err.message}</span>`;
+      }
+    }
+
+    function exportLog() {
+      const blob = new Blob([logData.join('\n')], { type: 'text/plain' });
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(blob);
+      link.download = 'cox_speed_log.txt';
+      link.click();
+    }
+
+    function startAutoTests() {
+      runSpeedTest();
+      autoTestInterval = setInterval(runSpeedTest, 600000);
+    }
+
+    window.onload = startAutoTests;
+  </script>
+</body>
+</html>
